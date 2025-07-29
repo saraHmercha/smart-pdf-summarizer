@@ -30,7 +30,7 @@ def extractive_summary(chunks: list[str], sentences_count: int = 3, language: st
             parser = PlaintextParser.from_string(chunk, Tokenizer(language))
             num_actual_sentences = len(list(parser.document.sentences))
             sentences_to_extract = min(sentences_count, num_actual_sentences)
-            
+
             if sentences_to_extract == 0:
                 extracted_chunks.append("")
                 continue

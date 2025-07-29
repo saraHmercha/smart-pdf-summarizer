@@ -54,8 +54,8 @@ def summarize_text_abstractively(
     hf_model_key: Optional[str] = None, # Clé du modèle HF (e.g., "BART-large")
     openai_api_key: Optional[str] = None,
     openai_model_name: str = "gpt-3.5-turbo",
-    max_length: int = 150, # Longueur max du résumé généré
-    min_length: int = 40,  # Longueur min du résumé généré
+    max_length: int = 150, # Longueur max du résumé généré (default used if not overridden)
+    min_length: int = 40,  # Longueur min du résumé généré (default used if not overridden)
     device: Optional[torch.device] = None
 ) -> Optional[str]:
     """
@@ -71,20 +71,24 @@ def summarize_text_abstractively(
         if hf_model_key is None or hf_model_key not in HF_MODELS_CONFIG:
             print(f"❌ ERREUR : Clé de modèle HF non spécifiée ou non valide pour le type 'hf'.")
             return None
-        
+
         model, tokenizer = load_hf_model_and_tokenizer(hf_model_key, device)
         if model is None or tokenizer is None:
             return None # Erreur de chargement déjà loggée
 
         input_text = HF_MODELS_CONFIG[hf_model_key]["prefix"] + text
-        
-        # --- CORRECTION DE LA LIGNE SUIVANTE ---
-        # Fixe une limite d'entrée explicite pour éviter l'OverflowError
-        # La limite typique pour BART est 1024, pour T5-base est 512
-        # On peut la rendre dynamique si besoin en fonction du model_name
-        fixed_max_input_length = 1024 if "bart" in hf_model_key.lower() else (512 if "t5" in hf_model_key.lower() else 1024)
+
+        # --- GESTION DYNAMIQUE DE LA TAILLE MAX D'INPUT SELON LE MODÈLE ---
+        fixed_max_input_length = 1024 # Valeur par défaut
+        if "bart" in hf_model_key.lower():
+            fixed_max_input_length = 1024
+        elif "t5" in hf_model_key.lower():
+            fixed_max_input_length = 512
+        elif "pegasus" in hf_model_key.lower():
+            fixed_max_input_length = 1024
+
         inputs = tokenizer(input_text, return_tensors="pt", max_length=fixed_max_input_length, truncation=True)
-        # --- FIN DE LA CORRECTION ---
+        # --- FIN DE LA GESTION DYNAMIQUE ---
 
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
@@ -129,7 +133,7 @@ def summarize_text_abstractively(
     else:
         print(f"❌ ERREUR : Type de modèle '{model_type}' non supporté.")
         summary_result = None
-    
+
     return summary_result if summary_result else None
 
 
@@ -141,8 +145,10 @@ def summarize_document_abstractively(
     final_hf_model_key: Optional[str] = None, # Modèle HF pour le résumé final (si final_summary_model_type est "hf")
     openai_api_key: Optional[str] = None,
     openai_model_name: str = "gpt-3.5-turbo",
-    max_chunk_summary_length: int = 100, # Longueur max des résumés de chunks
-    max_final_summary_length: int = 400, # Longueur max du résumé final du document
+    # --- MODIFICATIONS DES PARAMÈTRES DE LONGUEUR ---
+    max_chunk_summary_length: int = 25, # Ancien: 40. Diminué pour forcer des résumés de chunks plus courts en TOKENS.
+    max_final_summary_length: int = 400, # Maintenu, vise un résumé final de ~260-300 mots.
+    # --- FIN DES MODIFICATIONS ---
     device: torch.device = None
 ) -> Optional[str]:
     """
@@ -166,11 +172,15 @@ def summarize_document_abstractively(
             text=chunk_text,
             model_type="hf",
             hf_model_key=hf_chunk_model_key,
-            max_length=max_chunk_summary_length,
-            min_length=20,
+            max_length=max_chunk_summary_length, # Utilise 25 tokens ici
+            min_length=10, # Min 10 tokens pour les résumés de chunks
             device=device
         )
         if chunk_abs_summary:
+            # --- LIGNE DE DIAGNOSTIC (pour vérification visuelle) ---
+            print(f"      - Résumé abstractif du chunk {i+1} : {len(chunk_abs_summary.split())} mots.")
+            print(f"        Contenu (début) : \"{chunk_abs_summary[:100]}...\"") # Affiche le début du contenu
+            # --- FIN DE LA LIGNE DE DIAGNOSTIC ---
             abstractive_chunk_summaries.append(chunk_abs_summary)
         else:
             print(f"      - ⚠️ AVERTISSEMENT : Résumé abstractif échoué pour le chunk {i+1}. Ignoré.")
@@ -191,8 +201,8 @@ def summarize_document_abstractively(
         hf_model_key=final_hf_model_key,
         openai_api_key=openai_api_key,
         openai_model_name=openai_model_name,
-        max_length=max_final_summary_length,
-        min_length=50,
+        max_length=max_final_summary_length, # Utilise 400 tokens ici
+        min_length=150, # Min 150 tokens pour le résumé final du document
         device=device
     )
 

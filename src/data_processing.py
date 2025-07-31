@@ -12,7 +12,7 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
     try:
         doc = fitz.open(pdf_path)
         raw_text = "".join([page.get_text("text", sort=True) for page in doc])
-        
+
         # --- CORRECTION ICI : Lisez doc.page_count AVANT de fermer le document ---
         doc_page_count = doc.page_count
         doc.close() # Fermer le document après avoir extrait les données nécessaires
@@ -45,7 +45,7 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
 
     copyright_pattern = r'\n\s*The Author\(s\) \d{4}.*?(?:\n\s*Open Access This chapter is licensed.*)?$'
     license_pattern = r'\n\s*Open Access This chapter is licensed under the terms of the Creative Commons Attribution-NonCommercial 4\.0 International License.*$'
-    
+
     text = re.sub(license_pattern, '', text, flags=re.DOTALL | re.IGNORECASE).strip()
     text = re.sub(copyright_pattern, '', text, flags=re.DOTALL | re.IGNORECASE).strip()
 
@@ -56,7 +56,7 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
         if 5 < len(line.strip()) < 100 and not line.strip().isdigit() and not line.strip().isupper()
     )
     # Utilisez la nouvelle variable doc_page_count ici
-    frequent_lines = {line for line, count in line_counts.items() if doc_page_count > 0 and count > (doc_page_count / 2) } 
+    frequent_lines = {line for line, count in line_counts.items() if doc_page_count > 0 and count > (doc_page_count / 2) }
 
     if frequent_lines:
         print(f"   - Suppression de {len(frequent_lines)} lignes d'en-tête/pied de page fréquentes.")
@@ -67,7 +67,7 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
     # 4. Nettoyage final : consolidation des paragraphes, suppression des caractères invisibles
     cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text).strip()
     cleaned_text = re.sub(r'[\u200B-\u200D\uFEFF]', '', cleaned_text)
-    
+
     print("✅ Prétraitement terminé avec succès.")
     print(f"   - Texte final prétraité contient {len(cleaned_text.split())} mots.")
 

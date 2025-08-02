@@ -15,7 +15,7 @@ def extractive_summary(chunks: list[str], sentences_count: int = 3, language: st
     except LookupError:
         print(f"❌ ERREUR : La langue '{language}' n'est pas supportée par sumy ou les données NLTK associées sont manquantes.")
         print("Veuillez vous assurer que les données NLTK pour cette langue sont téléchargées.")
-        print("Retour au résumé extractif sans stop words spécifiques ou en anglais par défaut.")
+        print("Retour au résumé extractif sans stop words spécifiques ou en english par défaut.")
         stemmer = Stemmer("english")
         summarizer = TextRankSummarizer(stemmer)
         summarizer.stop_words = get_stop_words("english")

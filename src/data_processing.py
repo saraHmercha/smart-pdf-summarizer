@@ -12,14 +12,9 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
     try:
         doc = fitz.open(pdf_path)
         raw_text = "".join([page.get_text("text", sort=True) for page in doc])
-
-        # --- CORRECTION ICI : Lisez doc.page_count AVANT de fermer le document ---
         doc_page_count = doc.page_count
-        doc.close() # Fermer le document après avoir extrait les données nécessaires
-        # --- FIN DE LA CORRECTION ---
-
+        doc.close()
         print(f"   - Texte brut extrait par PyMuPDF (avant tout nettoyage) : {len(raw_text.split())} mots.")
-
         if not raw_text.strip():
             print("❌ AVERTISSEMENT : Le PDF ne contient aucun texte extractible.")
             return None
@@ -27,14 +22,12 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
         print(f"❌ ERREUR CRITIQUE lors de la lecture du PDF : {e}")
         return None
 
-    # 1. Nettoyage initial : entités HTML, guillemets, mots coupés, espaces multiples
     text = html.unescape(raw_text)
     text = text.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-    text = re.sub(r'-\n', '', text)                 # Mots coupés en fin de ligne (hyphenation)
-    text = re.sub(r'[ \t]+', ' ', text)             # Espaces et tabulations multiples
-    text = unicodedata.normalize("NFKC", text)      # Normalisation Unicode pour caractères de compatibilité
+    text = re.sub(r'-\n', '', text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = unicodedata.normalize("NFKC", text)
 
-    # 2. Suppression des sections de fin (plus robuste)
     end_sections_pattern = r'\n\s*(REFERENCES|ACKNOWLEDGEMENTS?|APPENDIX|BIBLIOGRAPHY)\s*\n'
     match = re.search(end_sections_pattern, text, flags=re.IGNORECASE | re.DOTALL)
     if match:
@@ -49,13 +42,11 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
     text = re.sub(license_pattern, '', text, flags=re.DOTALL | re.IGNORECASE).strip()
     text = re.sub(copyright_pattern, '', text, flags=re.DOTALL | re.IGNORECASE).strip()
 
-    # 3. Suppression des entêtes/pieds répétitifs via l'heuristique de fréquence
     lines = text.split('\n')
     line_counts = Counter(
         line.strip() for line in lines
         if 5 < len(line.strip()) < 100 and not line.strip().isdigit() and not line.strip().isupper()
     )
-    # Utilisez la nouvelle variable doc_page_count ici
     frequent_lines = {line for line, count in line_counts.items() if doc_page_count > 0 and count > (doc_page_count / 2) }
 
     if frequent_lines:
@@ -64,7 +55,6 @@ def preprocess_text(pdf_path: str) -> Optional[str]:
     else:
         cleaned_text = text
 
-    # 4. Nettoyage final : consolidation des paragraphes, suppression des caractères invisibles
     cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text).strip()
     cleaned_text = re.sub(r'[\u200B-\u200D\uFEFF]', '', cleaned_text)
 
@@ -104,8 +94,8 @@ def split_text_into_chunks(text: str, chunk_size: int = 800, chunk_overlap: int 
     if not final_filtered_chunks:
         print("❌ AVERTISSEMENT : Aucun chunk pertinent n'a été conservé après le filtrage.")
 
-    print(f"\n--- Affichage des {min(3, len(final_filtered_chunks))} premiers chunks filtrés ---")
+    print(f"\n--- Affichage des {min(3, len(final_filtered_chunks))} premiers chunks filtrés ---\n") # Ajout d'un saut de ligne
     for i, chunk in enumerate(final_filtered_chunks[:3]):
-        print(f"\n--- 🧩 Chunk {i+1} ({len(chunk.split())} mots) ---\n{chunk[:400]}...\n")
+        print(f"--- 🧩 Chunk {i+1} ({len(chunk.split())} mots) ---\n{chunk[:400]}...\n")
 
     return final_filtered_chunks
